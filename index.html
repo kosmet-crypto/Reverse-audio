@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e5574a">
+<meta name="color-scheme" content="light dark">
+<title>Reverse Voice</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23e5574a'/%3E%3Cpath d='M70 25v50L28 50z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+/* ============================================================
+   THEME — light by default, dark via prefers-color-scheme
+   ============================================================ */
+:root{
+  --bg:#f3f4f9; --surface:#ffffff; --surface-2:#eceef5; --text:#15161d; --muted:#5d6275;
+  --border:#dcdfe9; --shadow:0 8px 24px rgba(24,26,48,.12);
+  --red:#e5574a; --blue:#4f7fea; --green:#43b552;
+  --primary:#7b4dff; --primary-text:#fff;
+  --grad:linear-gradient(100deg,#ef5350 0%,#c85bc0 50%,#4f8fe6 100%);
+  --pill-grad:linear-gradient(100deg,#c2449f,#6a5cf0);
+  --radius:22px;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0f1016; --surface:#191b24; --surface-2:#232633; --text:#f2f3f8; --muted:#a4a9bd;
+    --border:#2f3344; --shadow:0 8px 24px rgba(0,0,0,.45);
+    --red:#d84a3e; --blue:#3f6fd8; --green:#2f9a3e; --primary:#8a66ff;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:"Poppins",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  overscroll-behavior:none;-webkit-user-select:none;user-select:none;
+}
+input{-webkit-user-select:text;user-select:text}
+button{font:inherit;color:inherit;touch-action:manipulation;cursor:pointer}
+button:disabled{cursor:default}
+svg{display:block}
+
+/* ---------- screens ---------- */
+.screen{
+  display:none;flex-direction:column;gap:14px;
+  min-height:100vh;min-height:100dvh;max-width:560px;margin:0 auto;
+  padding:calc(10px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+}
+.screen.active{display:flex}
+.topbar{display:flex;align-items:center;gap:10px;min-height:44px}
+.topbar h1{flex:1;margin:0;font-size:1.25rem;font-weight:800;letter-spacing:-.01em}
+.brand-dot{display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--grad);margin-right:8px;vertical-align:middle}
+.lang-select{
+  appearance:none;-webkit-appearance:none;border:1px solid var(--border);background:var(--surface);
+  color:var(--text);border-radius:999px;padding:8px 14px;font:inherit;font-size:.9rem;font-weight:600;
+}
+.icon-btn{
+  width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface);
+  display:grid;place-items:center;font-size:1.2rem;flex:none;
+}
+
+/* ---------- Free play: three stacked blocks ---------- */
+#scr-free{height:100vh;height:100dvh}
+.phone{
+  flex:1;display:flex;flex-direction:column;min-height:330px;
+  border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);
+}
+.block{
+  flex:1;position:relative;overflow:hidden;border:0;color:#fff;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  font-size:1.4rem;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.18);
+  min-height:96px;transition:filter .15s, transform .1s;
+}
+.block:active{filter:brightness(.92)}
+.block.red{background:var(--red)}
+.block.blue{background:var(--blue)}
+.block.green{background:var(--green)}
+.block .ico{width:54px;height:54px;position:relative;z-index:1}
+.block .ico svg{width:100%;height:100%}
+.block .label,.block .sub{position:relative;z-index:1}
+.block .sub{font-size:.95rem;font-weight:600;opacity:.92;min-height:1.2em;font-variant-numeric:tabular-nums}
+.block.dim{filter:saturate(.55) brightness(.95)}
+.block.dim .ico,.block.dim .label{opacity:.7}
+.block.live .ico{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.12)}}
+.wave{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:.55}
+
+/* ---------- controls ---------- */
+.controls{display:flex;flex-direction:column;gap:10px;background:var(--surface);border-radius:18px;padding:12px 14px;box-shadow:var(--shadow)}
+.ctrl-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ctrl-row .lbl{font-weight:700}
+.pills{display:flex;gap:8px;flex-wrap:wrap}
+.pill-btn{
+  border:1px solid var(--border);background:var(--surface-2);border-radius:999px;
+  padding:9px 14px;font-weight:600;min-width:52px;font-size:.95rem;
+}
+.pill-btn.on{background:var(--pill-grad);color:#fff;border-color:transparent}
+.switch{width:58px;height:34px;border-radius:999px;border:0;background:var(--surface-2);position:relative;flex:none;
+  box-shadow:inset 0 0 0 1px var(--border);transition:background .2s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:28px;height:28px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+.switch[aria-checked="true"]{background:var(--pill-grad);box-shadow:none}
+.switch[aria-checked="true"]::after{transform:translateX(24px)}
+
+/* ---------- buttons ---------- */
+.btn{
+  border:0;border-radius:16px;min-height:52px;padding:12px 18px;font-weight:700;font-size:1.05rem;
+  display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+}
+.btn svg{width:24px;height:24px}
+.btn.share{background:var(--grad);color:#fff;font-size:1.3rem;min-height:60px;border-radius:18px;box-shadow:var(--shadow)}
+.btn.primary{background:var(--primary);color:var(--primary-text)}
+.btn.ghost{background:var(--surface);border:1px solid var(--border)}
+.btn.big{min-height:62px;font-size:1.2rem}
+.btn.small{width:auto;min-height:48px;padding:10px 16px;font-size:1rem}
+.btn.link{background:none;color:var(--muted);min-height:44px;font-weight:600}
+.btn:disabled,.btn.dim{opacity:.45}
+.hidden{display:none !important}
+
+/* ---------- cards / setup ---------- */
+.card{background:var(--surface);border-radius:18px;padding:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px}
+.card h2{margin:0;font-size:1.05rem}
+.add-row{display:flex;gap:8px}
+.add-row input{
+  flex:1;min-width:0;font:inherit;font-size:1.05rem;padding:12px 14px;border-radius:14px;
+  border:1px solid var(--border);background:var(--surface-2);color:var(--text);
+}
+.player-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.player-list li{display:flex;align-items:center;gap:10px;background:var(--surface-2);border-radius:14px;padding:6px 6px 6px 12px;font-weight:600}
+.player-list li .pname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.avatar{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:.85rem;font-weight:800;flex:none}
+.remove{width:40px;height:40px;border-radius:12px;border:0;background:transparent;font-size:1.3rem;color:var(--muted)}
+.hint{margin:0;color:var(--muted);font-size:.92rem}
+.center{text-align:center}
+.stepper{display:flex;align-items:center;gap:14px;justify-content:center}
+.stepper b{font-size:1.4rem;min-width:2ch;text-align:center}
+.rules ol{margin:0;padding-left:20px;color:var(--muted);display:flex;flex-direction:column;gap:4px;font-size:.93rem}
+
+/* ---------- game ---------- */
+.gamebar{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
+.round-pill{background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:8px 14px;font-weight:700;font-size:.92rem}
+.quit{width:auto;min-width:44px;padding:0 14px;border-radius:999px}
+.quit.confirming{background:var(--red);color:#fff;border-color:transparent}
+.speaker-card{text-align:center;padding:10px 0}
+.speaker-card .muted{color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:.85rem}
+.speaker-name{font-size:2.4rem;font-weight:800;line-height:1.15;word-break:break-word}
+.lookaway{margin-top:6px;font-weight:600}
+.rec-wrap{flex:1;display:grid;place-items:center;min-height:260px}
+.rec-circle{
+  width:min(72vw,280px);aspect-ratio:1;border-radius:50%;border:0;background:var(--red);color:#fff;
+  position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  font-weight:700;font-size:1.15rem;box-shadow:0 12px 34px rgba(229,87,74,.4);
+}
+.rec-circle .ico{width:64px;height:64px;position:relative;z-index:1}
+.rec-circle .ico svg{width:100%;height:100%}
+.rec-circle span{position:relative;z-index:1}
+.rec-circle .time{font-variant-numeric:tabular-nums;font-size:1rem;opacity:.95}
+.rec-circle.live .ico{animation:pulse 1s ease-in-out infinite}
+.ring{position:absolute;inset:6px;width:calc(100% - 12px);height:calc(100% - 12px);transform:rotate(-90deg);z-index:1;pointer-events:none}
+.ring circle{fill:none;stroke:rgba(255,255,255,.9);stroke-width:4;stroke-linecap:round;transition:stroke-dashoffset .1s linear}
+.big-block{border-radius:var(--radius);min-height:200px;flex:none;box-shadow:var(--shadow)}
+.mid-block{border-radius:var(--radius);min-height:120px;flex:none;box-shadow:var(--shadow)}
+.title{margin:0;font-size:1.6rem;font-weight:800}
+.shout{font-size:1.5rem;font-weight:800;margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{
+  border:2px solid var(--border);background:var(--surface);border-radius:999px;padding:12px 18px;
+  font-weight:700;font-size:1.05rem;min-height:52px;display:flex;align-items:center;gap:8px;
+}
+.chip.on{border-color:var(--green);background:var(--green);color:#fff}
+.chip.nobody.on{border-color:var(--red);background:var(--red)}
+.score-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.score-list li{background:var(--surface);border-radius:16px;padding:10px 12px;display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:4px 10px;box-shadow:var(--shadow)}
+.score-list .rank{font-weight:800;font-size:1.1rem;text-align:center}
+.score-list .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.score-list .pts{font-weight:800;font-variant-numeric:tabular-nums}
+.score-list .bar{grid-column:2 / 4;height:8px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+.score-list .bar i{display:block;height:100%;background:var(--pill-grad);border-radius:999px}
+.delta{display:inline-block;margin-left:8px;font-size:.85rem;font-weight:800;color:#fff;background:var(--green);border-radius:999px;padding:2px 8px}
+.delta.zero{background:var(--surface-2);color:var(--muted)}
+.summary .word{font-size:1.6rem;font-weight:800;word-break:break-word}
+.trophy{font-size:4.5rem;text-align:center;line-height:1;margin-top:10px}
+.end-title{margin:0;text-align:center;font-size:2rem;font-weight:800;word-break:break-word}
+.tie{margin:0;text-align:center;background:var(--surface);border-radius:16px;padding:12px;font-weight:600;box-shadow:var(--shadow)}
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}
+.spacer{flex:1}
+
+/* ---------- toast ---------- */
+#toast{
+  position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,20px);
+  background:#222;color:#fff;padding:12px 18px;border-radius:14px;font-weight:600;max-width:90vw;
+  opacity:0;pointer-events:none;transition:.25s;z-index:60;text-align:center;
+}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+@media (max-height:640px){
+  .block{font-size:1.15rem;min-height:80px}.block .ico{width:40px;height:40px}
+  .speaker-name{font-size:1.9rem}
+}
+@media (prefers-reduced-motion:reduce){.block.live .ico,.rec-circle.live .ico{animation:none}}
+</style>
+</head>
+<body>
+
+<!-- ================= MODE 1: FREE PLAY ================= -->
+<section id="scr-free" class="screen" data-screen="free">
+  <header class="topbar">
+    <h1><span class="brand-dot"></span>Reverse Voice</h1>
+    <select class="lang-select" aria-label="Language"></select>
+  </header>
+
+  <div class="phone">
+    <button id="fRec" class="block red">
+      <canvas id="fWave" class="wave"></canvas>
+      <span class="ico"></span><span class="label"></span><span class="sub"></span>
+    </button>
+    <button id="fPlay" class="block blue">
+      <span class="ico"></span><span class="label"></span><span class="sub"></span>
+    </button>
+    <button id="fRev" class="block green">
+      <span class="ico"></span><span class="label"></span><span class="sub"></span>
+    </button>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl-row">
+      <span class="lbl" data-i18n="speed"></span>
+      <div class="pills" id="speedPills"></div>
+    </div>
+    <div class="ctrl-row">
+      <span class="lbl" data-i18n="loop"></span>
+      <button id="loopSwitch" class="switch" role="switch" aria-checked="false"></button>
+    </div>
+  </div>
+
+  <button id="fShare" class="btn share"><span class="share-ico"></span><span data-i18n="share"></span></button>
+  <button id="toParty" class="btn ghost">🎉 <span data-i18n="partyGame"></span></button>
+</section>
+
+<!-- ================= MODE 2: SETUP ================= -->
+<section id="scr-setup" class="screen" data-screen="setup">
+  <header class="topbar">
+    <button class="icon-btn" id="setupBack" aria-label="Back">←</button>
+    <h1 data-i18n="partyGame"></h1>
+    <select class="lang-select" aria-label="Language"></select>
+  </header>
+
+  <div class="card">
+    <h2 data-i18n="players"></h2>
+    <form id="addForm" class="add-row" autocomplete="off">
+      <input id="nameInput" maxlength="16" enterkeyhint="done" data-i18n-ph="playerPlaceholder">
+      <button class="btn small primary" type="submit" data-i18n="addPlayer"></button>
+    </form>
+    <ul id="playerList" class="player-list"></ul>
+    <p class="hint" id="playersHint"></p>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="rounds"></h2>
+    <div class="pills" id="roundPills"></div>
+    <div class="stepper" id="eachStepper">
+      <button class="icon-btn" id="eachMinus" aria-label="-">−</button>
+      <b id="eachVal"></b><span data-i18n="timesEach"></span>
+      <button class="icon-btn" id="eachPlus" aria-label="+">+</button>
+    </div>
+    <p class="hint" id="turnsHint"></p>
+  </div>
+
+  <div class="card rules">
+    <h2 data-i18n="howTo"></h2>
+    <ol id="rulesList"></ol>
+  </div>
+
+  <button id="startGame" class="btn primary big" data-i18n="start"></button>
+</section>
+
+<!-- ================= GAME: RECORD ================= -->
+<section id="scr-record" class="screen" data-screen="record">
+  <header class="gamebar"><span class="round-pill"></span><button class="icon-btn quit">✕</button></header>
+  <div class="speaker-card">
+    <div class="muted" data-i18n="speaker"></div>
+    <div class="speaker-name" id="rSpeaker"></div>
+    <div class="lookaway" data-i18n="lookAway"></div>
+  </div>
+  <p class="hint center" id="rHint"></p>
+  <div class="rec-wrap">
+    <button id="gRec" class="rec-circle">
+      <canvas id="gWave" class="wave"></canvas>
+      <svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/></svg>
+      <span class="ico"></span><span class="label"></span><span class="time"></span>
+    </button>
+  </div>
+</section>
+
+<!-- ================= GAME: LISTEN ================= -->
+<section id="scr-listen" class="screen" data-screen="listen">
+  <header class="gamebar"><span class="round-pill"></span><button class="icon-btn quit">✕</button></header>
+  <h2 class="title center" data-i18n="showEveryone"></h2>
+  <p class="hint center" id="lSpeaker"></p>
+  <button id="gPlayRev" class="block green big-block">
+    <span class="ico"></span><span class="label"></span><span class="sub"></span>
+  </button>
+  <p class="shout center" data-i18n="guessOutLoud"></p>
+  <div class="spacer"></div>
+  <button id="gReRecord" class="btn ghost" data-i18n="recordAgain"></button>
+  <button id="gReveal" class="btn primary big" data-i18n="reveal"></button>
+</section>
+
+<!-- ================= GAME: REVEAL + WHO GUESSED ================= -->
+<section id="scr-reveal" class="screen" data-screen="reveal">
+  <header class="gamebar"><span class="round-pill"></span><button class="icon-btn quit">✕</button></header>
+  <div class="card">
+    <h2 data-i18n="realWord"></h2>
+    <div class="add-row">
+      <input id="wordInput" maxlength="40" enterkeyhint="done" data-i18n-ph="typeWord">
+      <button id="dictate" class="btn small ghost" type="button">🎤 <span data-i18n="sayIt"></span></button>
+    </div>
+  </div>
+  <button id="gPlayOrig" class="block blue mid-block">
+    <span class="ico"></span><span class="label"></span>
+  </button>
+  <div class="card">
+    <h2 data-i18n="whoGuessed"></h2>
+    <div class="chips" id="guessChips"></div>
+  </div>
+  <div class="spacer"></div>
+  <button id="gConfirm" class="btn primary big" data-i18n="confirm"></button>
+</section>
+
+<!-- ================= GAME: ROUND SCOREBOARD ================= -->
+<section id="scr-score" class="screen" data-screen="score">
+  <header class="gamebar"><span class="round-pill"></span><button class="icon-btn quit">✕</button></header>
+  <div class="card summary" id="summary"></div>
+  <h2 class="title" data-i18n="scoreboard" style="font-size:1.25rem"></h2>
+  <ol class="score-list" id="scoreList"></ol>
+  <div class="spacer"></div>
+  <button id="gNext" class="btn primary big"></button>
+</section>
+
+<!-- ================= GAME: END ================= -->
+<section id="scr-end" class="screen" data-screen="end">
+  <div class="trophy">🏆</div>
+  <h1 class="end-title" id="endTitle"></h1>
+  <p class="tie hidden" id="tieMsg"></p>
+  <ol class="score-list" id="finalList"></ol>
+  <p class="hint center hidden" id="sharedNote" data-i18n="sharedPlace"></p>
+  <div class="spacer"></div>
+  <button id="playAgain" class="btn primary big" data-i18n="playAgain"></button>
+  <button id="newGame" class="btn ghost big" data-i18n="newGame"></button>
+  <button id="endHome" class="btn link" data-i18n="freePlay"></button>
+</section>
+
+<canvas id="confetti" class="hidden"></canvas>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+/* ============================================================
+   GAME CONSTANTS — change these to tweak the rules
+   ============================================================ */
+const POINTS_CORRECT_GUESS = 2;            // each player who guessed right
+const POINTS_SPEAKER_SOMEONE_GUESSED = 1;  // speaker, if at least one person guessed
+const POINTS_SPEAKER_NOBODY_GUESSED = 0;   // speaker, if nobody guessed
+const GAME_MAX_RECORD_SECONDS = 5;         // max length of a word in the party game
+const FREE_MAX_RECORD_SECONDS = 60;        // max length in free play
+const MAX_REPLAYS = 3;                     // replays after the first reversed play
+const MIN_PLAYERS = 2;
+const MAX_PLAYERS = 8;
+const ROUND_OPTIONS = [3, 5, 10];          // plus "everyone speaks X times"
+const SPEEDS = [0.5, 1, 1.5, 2];
+const STORAGE_KEY = 'reverseVoice.v1';
+const AVATAR_COLORS = ['#e5574a', '#4f7fea', '#43b552', '#a142f4', '#f39c12', '#16a3b8', '#e84393', '#6d7a8c'];
+
+/* ============================================================
+   TRANSLATIONS — English, Norwegian (Bokmål), Serbian (Cyrillic)
+   ============================================================ */
+const LANGS = { en: 'English', no: 'Norsk', sr: 'Српски' };
+const SPEECH_LANG = { en: 'en-US', no: 'nb-NO', sr: 'sr-RS' };
+const I18N = {
+  en: {
+    tapToRecord: 'Tap to record', tapToStop: 'Tap to stop', processing: 'One moment…',
+    playAudio: 'Play Audio', reverseAudio: 'Reverse Audio', stop: 'Stop', share: 'Share',
+    partyGame: 'Party Game', freePlay: 'Free Play', loop: 'Loop', speed: 'Speed',
+    recordFirst: 'Record something first', micDenied: 'Microphone access was denied. Allow it in settings and try again.',
+    micUnsupported: 'Recording is not supported here.', decodeFailed: 'Could not read the recording. Try again.',
+    tooShort: "Didn't catch that — try again.", saved: 'Saved as WAV file', shareTitle: 'Reversed audio',
+    players: 'Players', addPlayer: 'Add', playerPlaceholder: 'Player name',
+    needPlayers: 'Add at least {n} players', playerCount: '{n} of {max} players',
+    maxPlayers: 'Max {n} players', nameTaken: 'That name is already in the game',
+    rounds: 'Rounds', each: 'Everyone speaks', timesEach: '× each', totalTurns: '{n} turns in total',
+    howTo: 'How to play',
+    rule1: 'Pass the phone to the speaker. They secretly record a word or short phrase (max {sec} s).',
+    rule2: 'Everyone hears it backwards — up to {r} replays.',
+    rule3: 'Guess out loud! Then the speaker reveals the real word.',
+    rule4: 'Correct guess: +{g}. Speaker: +{s} if anyone gets it, {z} if nobody does.',
+    start: 'Start game', round: 'Round {n} of {total}', speaker: 'Speaker',
+    lookAway: 'Everyone else: look away! 🙈', recordHint: 'Record a word or short phrase (max {sec} s)',
+    showEveryone: 'Show everyone!', speakerIs: 'Speaker: {name}', playReversed: 'Play reversed',
+    replay: 'Replay', replaysLeft: '{n} replays left', noReplays: 'No replays left',
+    guessOutLoud: 'Guess out loud! 🗣️', recordAgain: 'Record again', reveal: 'Reveal',
+    realWord: 'The real word was…', typeWord: 'Type the word', sayIt: 'Say it', playOriginal: 'Play original',
+    whoGuessed: 'Who guessed it?', nobody: 'Nobody', confirm: 'Confirm', scoreboard: 'Scoreboard',
+    guessedBy: 'Guessed by {names}', nobodyGuessed: 'Nobody guessed it', noWord: '(not entered)',
+    nextSpeaker: 'Pass the phone to {name}', seeResults: 'See results',
+    winnerIs: '{name} wins!', tie: "It's a tie!",
+    tieMsg: '{names} are tied with {n} points. Tie-break: each records one more word — whoever gets guessed wins!',
+    sharedPlace: 'Tied players share the same place.', pts: 'pts',
+    playAgain: 'Play again (same players)', newGame: 'New game', quitConfirm: 'Quit?', and: 'and'
+  },
+  no: {
+    tapToRecord: 'Trykk for å ta opp', tapToStop: 'Trykk for å stoppe', processing: 'Et øyeblikk…',
+    playAudio: 'Spill av', reverseAudio: 'Spill baklengs', stop: 'Stopp', share: 'Del',
+    partyGame: 'Selskapslek', freePlay: 'Fri lek', loop: 'Gjenta', speed: 'Hastighet',
+    recordFirst: 'Ta opp noe først', micDenied: 'Mikrofontilgang ble avslått. Tillat den i innstillingene og prøv igjen.',
+    micUnsupported: 'Opptak støttes ikke her.', decodeFailed: 'Kunne ikke lese opptaket. Prøv igjen.',
+    tooShort: 'Hørte ingenting — prøv igjen.', saved: 'Lagret som WAV-fil', shareTitle: 'Baklengs lyd',
+    players: 'Spillere', addPlayer: 'Legg til', playerPlaceholder: 'Spillernavn',
+    needPlayers: 'Legg til minst {n} spillere', playerCount: '{n} av {max} spillere',
+    maxPlayers: 'Maks {n} spillere', nameTaken: 'Det navnet er allerede med',
+    rounds: 'Runder', each: 'Alle snakker', timesEach: '× hver', totalTurns: '{n} turer totalt',
+    howTo: 'Slik spiller du',
+    rule1: 'Gi telefonen til taleren. Hen tar i hemmelighet opp et ord eller en kort frase (maks {sec} s).',
+    rule2: 'Alle hører det baklengs — opptil {r} ekstra avspillinger.',
+    rule3: 'Gjett høyt! Så avslører taleren det riktige ordet.',
+    rule4: 'Riktig gjetning: +{g}. Taleren: +{s} hvis noen gjetter, {z} hvis ingen gjør det.',
+    start: 'Start spillet', round: 'Runde {n} av {total}', speaker: 'Taler',
+    lookAway: 'Alle andre: se bort! 🙈', recordHint: 'Ta opp et ord eller en kort frase (maks {sec} s)',
+    showEveryone: 'Vis alle!', speakerIs: 'Taler: {name}', playReversed: 'Spill baklengs',
+    replay: 'Spill igjen', replaysLeft: '{n} avspillinger igjen', noReplays: 'Ingen flere avspillinger',
+    guessOutLoud: 'Gjett høyt! 🗣️', recordAgain: 'Ta opp på nytt', reveal: 'Avslør',
+    realWord: 'Det riktige ordet var…', typeWord: 'Skriv ordet', sayIt: 'Si det', playOriginal: 'Spill original',
+    whoGuessed: 'Hvem gjettet riktig?', nobody: 'Ingen', confirm: 'Bekreft', scoreboard: 'Poengtavle',
+    guessedBy: 'Gjettet av {names}', nobodyGuessed: 'Ingen gjettet det', noWord: '(ikke skrevet)',
+    nextSpeaker: 'Gi telefonen til {name}', seeResults: 'Se resultater',
+    winnerIs: '{name} vinner!', tie: 'Uavgjort!',
+    tieMsg: '{names} har {n} poeng hver. Omspill: hver tar opp ett ord til — den som blir gjettet, vinner!',
+    sharedPlace: 'Spillere med likt poeng deler plassen.', pts: 'p',
+    playAgain: 'Spill igjen (samme spillere)', newGame: 'Nytt spill', quitConfirm: 'Avslutte?', and: 'og'
+  },
+  sr: {
+    tapToRecord: 'Додирни за снимање', tapToStop: 'Додирни за крај', processing: 'Само тренутак…',
+    playAudio: 'Пусти снимак', reverseAudio: 'Пусти уназад', stop: 'Стоп', share: 'Подели',
+    partyGame: 'Игра за друштво', freePlay: 'Слободна игра', loop: 'Понављање', speed: 'Брзина',
+    recordFirst: 'Прво нешто сними', micDenied: 'Приступ микрофону је одбијен. Дозволи га у подешавањима и покушај поново.',
+    micUnsupported: 'Снимање овде није подржано.', decodeFailed: 'Снимак није могао да се прочита. Покушај поново.',
+    tooShort: 'Ништа се не чује — покушај поново.', saved: 'Сачувано као WAV', shareTitle: 'Снимак уназад',
+    players: 'Играчи', addPlayer: 'Додај', playerPlaceholder: 'Име играча',
+    needPlayers: 'Додај бар {n} играча', playerCount: '{n} од {max} играча',
+    maxPlayers: 'Највише {n} играча', nameTaken: 'То име већ постоји',
+    rounds: 'Рунде', each: 'Свако говори', timesEach: '× сваки', totalTurns: 'Укупно {n} потеза',
+    howTo: 'Како се игра',
+    rule1: 'Дај телефон говорнику. Он тајно сними реч или кратку фразу (до {sec} с).',
+    rule2: 'Сви чују снимак уназад — до {r} понављања.',
+    rule3: 'Погађајте наглас! Онда говорник открије праву реч.',
+    rule4: 'Тачан погодак: +{g}. Говорник: +{s} ако неко погоди, {z} ако нико не погоди.',
+    start: 'Почни игру', round: 'Рунда {n} од {total}', speaker: 'Говорник',
+    lookAway: 'Остали: не гледајте! 🙈', recordHint: 'Сними реч или кратку фразу (до {sec} с)',
+    showEveryone: 'Покажи свима!', speakerIs: 'Говорник: {name}', playReversed: 'Пусти уназад',
+    replay: 'Понови', replaysLeft: 'Још {n} понављања', noReplays: 'Нема више понављања',
+    guessOutLoud: 'Погађајте наглас! 🗣️', recordAgain: 'Сними поново', reveal: 'Откриј',
+    realWord: 'Права реч је била…', typeWord: 'Упиши реч', sayIt: 'Изговори', playOriginal: 'Пусти оригинал',
+    whoGuessed: 'Ко је погодио?', nobody: 'Нико', confirm: 'Потврди', scoreboard: 'Табела',
+    guessedBy: 'Погодили: {names}', nobodyGuessed: 'Нико није погодио', noWord: '(није уписано)',
+    nextSpeaker: 'Дај телефон: {name}', seeResults: 'Резултати',
+    winnerIs: '{name} побеђује!', tie: 'Нерешено!',
+    tieMsg: '{names} имају по {n} поена. Одлучујућа рунда: свако сними још једну реч — побеђује онај чију реч погоде!',
+    sharedPlace: 'Играчи са истим бројем поена деле место.', pts: 'п.',
+    playAgain: 'Поново (исти играчи)', newGame: 'Нова игра', quitConfirm: 'Прекини?', and: 'и'
+  }
+};
+
+/* ============================================================
+   APP STATE — everything lives in this one object
+   ============================================================ */
+const state = {
+  lang: 'en',
+  screen: 'free',
+  settings: { loop: false, speed: 1, roundsMode: 'fixed', rounds: 5, eachTimes: 1 },
+  players: [],                       // saved player names
+  free: { original: null, reversed: null },
+  playing: null,                     // which sound is playing: 'f-orig' | 'f-rev' | 'g-orig' | 'g-rev'
+  recOwner: null,                    // 'free' | 'game' while recording
+  game: null                         // see startGame()
+};
+
+/* ---------- small helpers ---------- */
+const $ = (s, root = document) => root.querySelector(s);
+const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function t(key, vars) {
+  let s = (I18N[state.lang] && I18N[state.lang][key]) ?? I18N.en[key] ?? key;
+  if (vars) for (const k in vars) s = s.split('{' + k + '}').join(vars[k]);
+  return s;
+}
+function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { /* not available */ } }
+let toastTimer;
+function toast(msg) {
+  const el = $('#toast'); el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+function fmtTime(sec) {
+  const m = Math.floor(sec / 60), s = sec - m * 60;
+  return String(m).padStart(2, '0') + ':' + s.toFixed(2).padStart(5, '0');
+}
+function joinNames(names) {
+  if (names.length < 2) return names.join('');
+  return names.slice(0, -1).join(', ') + ' ' + t('and') + ' ' + names[names.length - 1];
+}
+
+/* ---------- icons ---------- */
+const ICON = {
+  mic: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14.5a3.5 3.5 0 0 0 3.5-3.5V5a3.5 3.5 0 0 0-7 0v6a3.5 3.5 0 0 0 3.5 3.5zM18 11a1 1 0 1 0-2 0 4 4 0 0 1-8 0 1 1 0 1 0-2 0 6 6 0 0 0 5 5.91V19H8.5a1 1 0 1 0 0 2h7a1 1 0 1 0 0-2H13v-2.09A6 6 0 0 0 18 11z"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.6v12.8a1.2 1.2 0 0 0 1.84 1L19.9 13a1.2 1.2 0 0 0 0-2L9.84 4.6A1.2 1.2 0 0 0 8 5.6z"/></svg>',
+  rev: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5.6v12.8a1.2 1.2 0 0 1-1.84 1L4.1 13a1.2 1.2 0 0 1 0-2l10.06-6.4A1.2 1.2 0 0 1 16 5.6z"/></svg>',
+  stop: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>',
+  share: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 15.5a3 3 0 0 0-2.3 1.08l-6.82-3.6a3 3 0 0 0 0-1.96l6.82-3.6A3 3 0 1 0 15 5.5c0 .2.02.39.06.58L8.1 9.75a3 3 0 1 0 0 4.5l6.96 3.67A3 3 0 1 0 18 15.5z"/></svg>'
+};
+
+/* ---------- persistence ---------- */
+function save() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ lang: state.lang, settings: state.settings, players: state.players }));
+  } catch (e) { /* storage unavailable */ }
+}
+function load() {
+  let data = null;
+  try { data = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch (e) { /* ignore */ }
+  if (data) {
+    if (LANGS[data.lang]) state.lang = data.lang;
+    if (data.settings) Object.assign(state.settings, data.settings);
+    if (Array.isArray(data.players)) state.players = data.players.filter(n => typeof n === 'string').slice(0, MAX_PLAYERS);
+  } else {
+    const nav = (navigator.language || 'en').toLowerCase();
+    if (/^(nb|nn|no)/.test(nav)) state.lang = 'no';
+    else if (/^(sr|hr|bs|sh|cnr)/.test(nav)) state.lang = 'sr';
+  }
+  if (!SPEEDS.includes(state.settings.speed)) state.settings.speed = 1;
+}
+
+/* ============================================================
+   AUDIO ENGINE — record, decode, trim, reverse, play, export
+   ============================================================ */
+const engine = {
+  ctx: null, source: null, sourceEnd: null, rec: null, unlocked: false,
+
+  /* Create/resume the AudioContext. Called on every tap (autoplay rules on iOS/Android). */
+  unlock() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    if (!this.ctx) this.ctx = new AC();
+    if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+    if (!this.unlocked) {            // iOS: play one silent sample inside the gesture
+      this.unlocked = true;
+      try {
+        const b = this.ctx.createBuffer(1, 1, 22050), s = this.ctx.createBufferSource();
+        s.buffer = b; s.connect(this.ctx.destination); s.start(0);
+      } catch (e) { /* ignore */ }
+    }
+    return this.ctx;
+  },
+
+  get isRecording() { return !!this.rec; },
+
+  /* Start recording. opts: { canvas, maxSec, onTick(sec), onDone(AudioBuffer), onError(key) } */
+  async startRecording(opts) {
+    if (this.rec) return;
+    const ctx = this.unlock();
+    if (!ctx || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { opts.onError('micUnsupported'); return; }
+    this.stop();
+    const rec = this.rec = { opts, chunks: [], pcm: [], pending: true, cancelled: false, stopping: false };
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    } catch (e) {
+      if (this.rec === rec) this.rec = null;
+      opts.onError(e && (e.name === 'NotAllowedError' || e.name === 'SecurityError') ? 'micDenied' : 'micUnsupported');
+      return;
+    }
+    if (rec.cancelled) { stream.getTracks().forEach(tr => tr.stop()); return; }
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    rec.stream = stream;
+    rec.srcNode = ctx.createMediaStreamSource(stream);
+    rec.analyser = ctx.createAnalyser();
+    rec.analyser.fftSize = 1024;
+    rec.srcNode.connect(rec.analyser);
+
+    if (window.MediaRecorder) {
+      const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/aac'];
+      const mimeType = MediaRecorder.isTypeSupported ? types.find(tp => MediaRecorder.isTypeSupported(tp)) : undefined;
+      try { rec.mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined); }
+      catch (e) { rec.mr = new MediaRecorder(stream); }
+      rec.mr.ondataavailable = e => { if (e.data && e.data.size) rec.chunks.push(e.data); };
+      rec.mr.start();
+    } else {
+      // Fallback for old WebViews without MediaRecorder: capture raw PCM.
+      rec.proc = ctx.createScriptProcessor(4096, 1, 1);
+      rec.proc.onaudioprocess = e => rec.pcm.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+      rec.srcNode.connect(rec.proc); rec.proc.connect(ctx.destination);
+    }
+    rec.pending = false;
+    rec.t0 = performance.now();
+    const data = new Uint8Array(rec.analyser.fftSize);
+    const tick = () => {
+      if (this.rec !== rec || rec.stopping) return;
+      const sec = (performance.now() - rec.t0) / 1000;
+      opts.onTick && opts.onTick(Math.min(sec, opts.maxSec || sec));
+      if (opts.canvas) drawLiveWave(opts.canvas, rec.analyser, data);
+      if (opts.maxSec && sec >= opts.maxSec) { buzz(40); this.stopRecording(); return; }
+      rec.raf = requestAnimationFrame(tick);
+    };
+    tick();
+    // Backup timer in case requestAnimationFrame is throttled.
+    if (opts.maxSec) rec.timer = setTimeout(() => this.stopRecording(), opts.maxSec * 1000 + 250);
+  },
+
+  /* Stop recording; onDone gets the decoded AudioBuffer (unless cancelled). */
+  stopRecording(cancel = false) {
+    const rec = this.rec;
+    if (!rec) return;
+    if (cancel) rec.cancelled = true;
+    if (rec.pending) { if (cancel) this.rec = null; return; }
+    if (rec.stopping) return;
+    rec.stopping = true;
+    cancelAnimationFrame(rec.raf); clearTimeout(rec.timer);
+    const ctx = this.ctx;
+    const finish = async () => {
+      try {
+        rec.stream.getTracks().forEach(tr => tr.stop());
+        rec.srcNode.disconnect();
+        if (rec.proc) rec.proc.disconnect();
+      } catch (e) { /* ignore */ }
+      if (this.rec === rec) this.rec = null;
+      if (rec.cancelled) return;
+      try {
+        let buf;
+        if (rec.mr) {
+          const blob = new Blob(rec.chunks, { type: rec.mr.mimeType || 'audio/webm' });
+          const ab = await new Response(blob).arrayBuffer();
+          buf = await decodeAudio(ctx, ab);
+        } else {
+          const len = rec.pcm.reduce((a, c) => a + c.length, 0);
+          buf = ctx.createBuffer(1, Math.max(1, len), ctx.sampleRate);
+          const ch = buf.getChannelData(0); let o = 0;
+          rec.pcm.forEach(c => { ch.set(c, o); o += c.length; });
+        }
+        rec.opts.onDone(buf);
+      } catch (e) {
+        console.error(e);
+        rec.opts.onError('decodeFailed');
+      }
+    };
+    if (rec.mr && rec.mr.state !== 'inactive') { rec.mr.onstop = finish; rec.mr.stop(); }
+    else finish();
+  },
+
+  /* Play an AudioBuffer. onEnd fires when it ends or is stopped. */
+  play(buffer, { loop = false, rate = 1, onEnd } = {}) {
+    const ctx = this.unlock();
+    if (!ctx || !buffer) return;
+    this.stop();
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.loop = loop;
+    src.playbackRate.value = rate;
+    src.connect(ctx.destination);
+    src.onended = () => { if (this.source === src) this.stop(); };
+    this.source = src; this.sourceEnd = onEnd || null;
+    src.start(0);
+  },
+  stop() {
+    const src = this.source, cb = this.sourceEnd;
+    this.source = null; this.sourceEnd = null;
+    if (src) { try { src.onended = null; src.stop(); } catch (e) { /* already stopped */ } }
+    if (src && cb) cb();
+  },
+  setRate(r) { if (this.source) this.source.playbackRate.value = r; },
+  setLoop(l) { if (this.source) this.source.loop = l; }
+};
+
+/* decodeAudioData: promise + callback form (older Safari/WebView). */
+function decodeAudio(ctx, ab) {
+  return new Promise((resolve, reject) => {
+    const p = ctx.decodeAudioData(ab, resolve, reject);
+    if (p && p.then) p.then(resolve, reject);
+  });
+}
+
+/* Cut silence at the start and end (keeps a little padding). Returns null if nothing was heard. */
+function trimSilence(buffer, threshold = 0.02, padSec = 0.08) {
+  const n = buffer.length, chans = [];
+  for (let c = 0; c < buffer.numberOfChannels; c++) chans.push(buffer.getChannelData(c));
+  const loud = i => chans.some(ch => Math.abs(ch[i]) > threshold);
+  let a = 0, b = n - 1;
+  while (a < n && !loud(a)) a++;
+  if (a >= n) return null;
+  while (b > a && !loud(b)) b--;
+  const pad = Math.floor(padSec * buffer.sampleRate);
+  a = Math.max(0, a - pad); b = Math.min(n - 1, b + pad);
+  const out = engine.ctx.createBuffer(buffer.numberOfChannels, b - a + 1, buffer.sampleRate);
+  chans.forEach((ch, c) => out.getChannelData(c).set(ch.subarray(a, b + 1)));
+  return out;
+}
+
+/* Reverse: copy the buffer and reverse() each channel's Float32Array. */
+function reverseBuffer(buffer) {
+  const out = engine.ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const data = buffer.getChannelData(c).slice();
+    data.reverse();
+    out.getChannelData(c).set(data);
+  }
+  return out;
+}
+
+/* Turn a fresh recording into {original, reversed}, or null if it is empty/too short. */
+function processRecording(buf) {
+  const trimmed = trimSilence(buf);
+  if (!trimmed || trimmed.duration < 0.2) return null;
+  return { original: trimmed, reversed: reverseBuffer(trimmed) };
+}
+
+/* Encode an AudioBuffer as a 16-bit PCM WAV Blob. */
+function encodeWav(buffer) {
+  const nCh = Math.min(2, buffer.numberOfChannels), sr = buffer.sampleRate, len = buffer.length;
+  const dataBytes = len * nCh * 2;
+  const dv = new DataView(new ArrayBuffer(44 + dataBytes));
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); dv.setUint32(4, 36 + dataBytes, true); str(8, 'WAVE');
+  str(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, nCh, true);
+  dv.setUint32(24, sr, true); dv.setUint32(28, sr * nCh * 2, true); dv.setUint16(32, nCh * 2, true); dv.setUint16(34, 16, true);
+  str(36, 'data'); dv.setUint32(40, dataBytes, true);
+  const chans = []; for (let c = 0; c < nCh; c++) chans.push(buffer.getChannelData(c));
+  let o = 44;
+  for (let i = 0; i < len; i++) {
+    for (let c = 0; c < nCh; c++) {
+      const s = Math.max(-1, Math.min(1, chans[c][i]));
+      dv.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true); o += 2;
+    }
+  }
+  return new Blob([dv], { type: 'audio/wav' });
+}
+
+/* Live waveform on a canvas (white line over the colored block). */
+function drawLiveWave(canvas, analyser, data) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  const g = canvas.getContext('2d');
+  analyser.getByteTimeDomainData(data);
+  g.clearRect(0, 0, w, h);
+  g.lineWidth = 3 * dpr; g.strokeStyle = '#fff'; g.lineJoin = 'round';
+  g.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const x = (i / (data.length - 1)) * w;
+    const y = h / 2 + ((data[i] - 128) / 128) * (h * 0.45);
+    i ? g.lineTo(x, y) : g.moveTo(x, y);
+  }
+  g.stroke();
+}
+function clearCanvas(c) { const g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); }
+
+/* Play helper that keeps state.playing in sync with the UI. */
+function playSound(kind, buffer, opts = {}) {
+  engine.play(buffer, {
+    ...opts,
+    onEnd: () => { if (state.playing === kind) { state.playing = null; render(); } }
+  });
+  state.playing = kind;
+  render();
+}
+function stopSound() { engine.stop(); state.playing = null; }
+
+/* ============================================================
+   SCREENS
+   ============================================================ */
+function show(name) {
+  if (name !== state.screen) {
+    stopSound();
+    if (engine.isRecording) { engine.stopRecording(true); state.recOwner = null; }
+  }
+  state.screen = name;
+  $$('.screen').forEach(s => s.classList.toggle('active', s.dataset.screen === name));
+  if (name !== 'end') confetti.stop();
+  render();
+  window.scrollTo(0, 0);
+}
+function render() {
+  ({ free: renderFree, setup: renderSetup, record: renderRecord, listen: renderListen,
+     reveal: renderReveal, score: renderScore, end: renderEnd })[state.screen]();
+}
+
+/* Fill one of the big blocks. */
+function setBlock(btn, icon, label, sub) {
+  $('.ico', btn).innerHTML = icon;
+  $('.label', btn).textContent = label;
+  const subEl = $('.sub', btn); if (subEl && sub !== undefined) subEl.textContent = sub;
+}
+
+/* ---------------- MODE 1: FREE PLAY ---------------- */
+function renderFree() {
+  const { original, reversed } = state.free;
+  const recording = engine.isRecording && state.recOwner === 'free';
+  const fRec = $('#fRec'), fPlay = $('#fPlay'), fRev = $('#fRev');
+  fRec.classList.toggle('live', recording);
+  setBlock(fRec, recording ? ICON.stop : ICON.mic,
+    recording ? (engine.rec && engine.rec.stopping ? t('processing') : t('tapToStop')) : t('tapToRecord'),
+    recording ? $('.sub', fRec).textContent || fmtTime(0) : (original ? fmtTime(original.duration) : ''));
+  if (!recording) clearCanvas($('#fWave'));
+  setBlock(fPlay, state.playing === 'f-orig' ? ICON.stop : ICON.play, state.playing === 'f-orig' ? t('stop') : t('playAudio'), '');
+  setBlock(fRev, state.playing === 'f-rev' ? ICON.stop : ICON.rev, state.playing === 'f-rev' ? t('stop') : t('reverseAudio'), '');
+  fPlay.classList.toggle('dim', !original);
+  fRev.classList.toggle('dim', !reversed);
+  fPlay.classList.toggle('live', state.playing === 'f-orig');
+  fRev.classList.toggle('live', state.playing === 'f-rev');
+  $('#fShare').classList.toggle('dim', !reversed);
+  $('#loopSwitch').setAttribute('aria-checked', String(state.settings.loop));
+  $$('#speedPills .pill-btn').forEach(b => b.classList.toggle('on', Number(b.dataset.speed) === state.settings.speed));
+}
+
+function freeRecordTap() {
+  if (engine.isRecording) {
+    if (state.recOwner === 'free') { engine.stopRecording(); buzz(20); renderFree(); }
+    return;
+  }
+  stopSound();
+  state.recOwner = 'free';
+  $('#fRec .sub').textContent = fmtTime(0);
+  buzz(30);
+  engine.startRecording({
+    canvas: $('#fWave'),
+    maxSec: FREE_MAX_RECORD_SECONDS,
+    onTick: s => { $('#fRec .sub').textContent = fmtTime(s); },
+    onDone: buf => {
+      state.recOwner = null;
+      const r = processRecording(buf);
+      if (r) { state.free = r; buzz([20, 40, 20]); } else toast(t('tooShort'));
+      render();
+    },
+    onError: key => { state.recOwner = null; toast(t(key)); render(); }
+  });
+  renderFree();
+}
+
+function freePlayTap(kind) {
+  const buf = kind === 'f-orig' ? state.free.original : state.free.reversed;
+  if (engine.isRecording) return;
+  if (!buf) { toast(t('recordFirst')); buzz(60); return; }
+  if (state.playing === kind) { stopSound(); renderFree(); return; }
+  buzz(15);
+  playSound(kind, buf, { loop: state.settings.loop, rate: state.settings.speed });
+}
+
+async function shareReversed() {
+  const buf = state.free.reversed;
+  if (!buf) { toast(t('recordFirst')); buzz(60); return; }
+  buzz(15);
+  const blob = encodeWav(buf);
+  const name = 'reverse-voice-' + Date.now() + '.wav';
+  // Inside the Android app: hand the file to the native share sheet.
+  if (window.ReverseAndroid && window.ReverseAndroid.shareWav) {
+    const reader = new FileReader();
+    reader.onload = () => window.ReverseAndroid.shareWav(String(reader.result).split(',')[1], name, t('shareTitle'));
+    reader.readAsDataURL(blob);
+    return;
+  }
+  try {
+    const file = new File([blob], name, { type: 'audio/wav' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: t('shareTitle') });
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;     // user closed the share sheet
+  }
+  // Fallback: download the file.
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  toast(t('saved'));
+}
+
+/* ---------------- MODE 2: SETUP ---------------- */
+function renderSetup() {
+  const ps = state.players, s = state.settings;
+  $('#playerList').innerHTML = ps.map((n, i) =>
+    `<li><span class="avatar" style="background:${AVATAR_COLORS[i % AVATAR_COLORS.length]}">${esc(n.charAt(0).toUpperCase())}</span>` +
+    `<span class="pname">${esc(n)}</span><button class="remove" data-i="${i}" aria-label="Remove">✕</button></li>`).join('');
+  $('#playersHint').textContent = ps.length < MIN_PLAYERS
+    ? t('needPlayers', { n: MIN_PLAYERS })
+    : t('playerCount', { n: ps.length, max: MAX_PLAYERS });
+  $('#addForm button').disabled = ps.length >= MAX_PLAYERS;
+  $('#roundPills').innerHTML = ROUND_OPTIONS.map(r =>
+    `<button class="pill-btn ${s.roundsMode === 'fixed' && s.rounds === r ? 'on' : ''}" data-rounds="${r}">${r}</button>`).join('') +
+    `<button class="pill-btn ${s.roundsMode === 'each' ? 'on' : ''}" data-rounds="each">${esc(t('each'))}</button>`;
+  $('#eachStepper').classList.toggle('hidden', s.roundsMode !== 'each');
+  $('#eachVal').textContent = s.eachTimes;
+  $('#turnsHint').textContent = t('totalTurns', { n: totalTurns(ps.length) || '–' });
+  $('#rulesList').innerHTML = [
+    t('rule1', { sec: GAME_MAX_RECORD_SECONDS }), t('rule2', { r: MAX_REPLAYS }), t('rule3'),
+    t('rule4', { g: POINTS_CORRECT_GUESS, s: POINTS_SPEAKER_SOMEONE_GUESSED, z: POINTS_SPEAKER_NOBODY_GUESSED })
+  ].map(r => `<li>${esc(r)}</li>`).join('');
+  $('#startGame').disabled = ps.length < MIN_PLAYERS;
+}
+function totalTurns(nPlayers) {
+  const s = state.settings;
+  return s.roundsMode === 'each' ? nPlayers * s.eachTimes : s.rounds;
+}
+function addPlayer(e) {
+  e.preventDefault();
+  const input = $('#nameInput');
+  const name = input.value.trim().replace(/\s+/g, ' ').slice(0, 16);
+  if (!name) return;
+  if (state.players.length >= MAX_PLAYERS) { toast(t('maxPlayers', { n: MAX_PLAYERS })); return; }
+  if (state.players.some(p => p.toLowerCase() === name.toLowerCase())) { toast(t('nameTaken')); buzz(60); return; }
+  state.players.push(name);
+  input.value = '';
+  buzz(15); save(); renderSetup();
+  input.focus();
+}
+
+/* ---------------- GAME FLOW ---------------- */
+/* Start (or restart) a game with the saved players and settings. */
+function startGame(startOffset = 0) {
+  state.game = {
+    players: state.players.map(name => ({ name, score: 0 })),
+    totalTurns: totalTurns(state.players.length),
+    turn: 0,                 // index of the current turn (0-based)
+    startOffset,             // who speaks first
+    // per-turn fields (reset in beginTurn):
+    original: null, reversed: null, played: false, replaysLeft: MAX_REPLAYS,
+    correct: new Set(), nobody: false, word: '', gains: null, lastSpeaker: 0
+  };
+  buzz([20, 30, 20]);
+  beginTurn();
+}
+function speakerIndex(turn) { const g = state.game; return (turn + g.startOffset) % g.players.length; }
+function beginTurn() {
+  Object.assign(state.game, {
+    original: null, reversed: null, played: false, replaysLeft: MAX_REPLAYS,
+    correct: new Set(), nobody: false, word: '', gains: null
+  });
+  show('record');
+}
+function setRoundPill() {
+  const g = state.game;
+  const n = state.screen === 'score' ? g.turn : g.turn + 1;
+  $$('.round-pill').forEach(p => { p.textContent = t('round', { n, total: g.totalTurns }); });
+}
+
+/* Step 1: speaker records (max GAME_MAX_RECORD_SECONDS). */
+function renderRecord() {
+  const g = state.game; setRoundPill();
+  $('#rSpeaker').textContent = g.players[speakerIndex(g.turn)].name;
+  $('#rHint').textContent = t('recordHint', { sec: GAME_MAX_RECORD_SECONDS });
+  const btn = $('#gRec'), recording = engine.isRecording && state.recOwner === 'game';
+  btn.classList.toggle('live', recording);
+  $('.ico', btn).innerHTML = recording ? ICON.stop : ICON.mic;
+  $('.label', btn).textContent = recording ? (engine.rec && engine.rec.stopping ? t('processing') : t('tapToStop')) : t('tapToRecord');
+  if (!recording) {
+    $('.time', btn).textContent = '0.0 / ' + GAME_MAX_RECORD_SECONDS.toFixed(1) + ' s';
+    $('.ring circle', btn).style.strokeDashoffset = 100;
+    clearCanvas($('#gWave'));
+  }
+}
+function gameRecordTap() {
+  if (engine.isRecording) {
+    if (state.recOwner === 'game') { engine.stopRecording(); buzz(20); renderRecord(); }
+    return;
+  }
+  stopSound();
+  state.recOwner = 'game';
+  buzz(30);
+  const btn = $('#gRec');
+  engine.startRecording({
+    canvas: $('#gWave'),
+    maxSec: GAME_MAX_RECORD_SECONDS,
+    onTick: s => {
+      $('.time', btn).textContent = s.toFixed(1) + ' / ' + GAME_MAX_RECORD_SECONDS.toFixed(1) + ' s';
+      $('.ring circle', btn).style.strokeDashoffset = 100 - (s / GAME_MAX_RECORD_SECONDS) * 100;
+    },
+    onDone: buf => {
+      state.recOwner = null;
+      const r = processRecording(buf);
+      if (!r) { toast(t('tooShort')); buzz(60); render(); return; }
+      Object.assign(state.game, r, { played: false, replaysLeft: MAX_REPLAYS });
+      buzz([20, 40, 20]);
+      show('listen');
+    },
+    onError: key => { state.recOwner = null; toast(t(key)); render(); }
+  });
+  renderRecord();
+}
+
+/* Step 2: play reversed to everyone (first play + MAX_REPLAYS replays). */
+function renderListen() {
+  const g = state.game; setRoundPill();
+  $('#lSpeaker').textContent = t('speakerIs', { name: g.players[speakerIndex(g.turn)].name });
+  const btn = $('#gPlayRev'), playing = state.playing === 'g-rev';
+  const label = playing ? t('stop') : (!g.played ? t('playReversed') : t('replay'));
+  const sub = !g.played ? '' : (g.replaysLeft > 0 ? t('replaysLeft', { n: g.replaysLeft }) : t('noReplays'));
+  setBlock(btn, playing ? ICON.stop : ICON.rev, label, sub);
+  btn.classList.toggle('live', playing);
+  btn.classList.toggle('dim', g.played && g.replaysLeft === 0 && !playing);
+  $('#gReRecord').classList.toggle('hidden', g.played);
+  $('#gReveal').disabled = !g.played;
+}
+function gamePlayReversedTap() {
+  const g = state.game;
+  if (state.playing === 'g-rev') { stopSound(); renderListen(); return; }
+  if (!g.played) g.played = true;
+  else if (g.replaysLeft > 0) g.replaysLeft--;
+  else { toast(t('noReplays')); buzz(60); return; }
+  buzz(15);
+  playSound('g-rev', g.reversed);
+}
+
+/* Steps 4–5: reveal the word, play original, mark who guessed. */
+function renderReveal() {
+  const g = state.game; setRoundPill();
+  const si = speakerIndex(g.turn);
+  const input = $('#wordInput');
+  if (document.activeElement !== input) input.value = g.word;
+  const playing = state.playing === 'g-orig';
+  setBlock($('#gPlayOrig'), playing ? ICON.stop : ICON.play, playing ? t('stop') : t('playOriginal'));
+  $('#gPlayOrig').classList.toggle('live', playing);
+  $('#guessChips').innerHTML = g.players.map((p, i) => i === si ? '' :
+    `<button class="chip ${g.correct.has(i) ? 'on' : ''}" data-i="${i}">${g.correct.has(i) ? '✓ ' : ''}${esc(p.name)}</button>`).join('') +
+    `<button class="chip nobody ${g.nobody ? 'on' : ''}" data-i="nobody">${esc(t('nobody'))}</button>`;
+  $('#gConfirm').disabled = !(g.correct.size || g.nobody);
+}
+function confirmRound() {
+  const g = state.game;
+  if (!(g.correct.size || g.nobody)) return;
+  stopSound();
+  const si = speakerIndex(g.turn);
+  const gains = g.players.map(() => 0);
+  g.correct.forEach(i => { gains[i] += POINTS_CORRECT_GUESS; });
+  gains[si] += g.correct.size > 0 ? POINTS_SPEAKER_SOMEONE_GUESSED : POINTS_SPEAKER_NOBODY_GUESSED;
+  gains.forEach((d, i) => { g.players[i].score += d; });
+  g.gains = gains; g.lastSpeaker = si; g.lastWord = g.word.trim();
+  g.lastCorrect = [...g.correct];
+  g.turn++;
+  buzz([30, 50, 30]);
+  show('score');
+}
+
+/* Step 6–7: short scoreboard, pass to next speaker. */
+function rankPlayers(players) {
+  const sorted = players.map((p, i) => ({ ...p, i })).sort((a, b) => b.score - a.score || a.i - b.i);
+  sorted.forEach((p, k) => { p.rank = k > 0 && p.score === sorted[k - 1].score ? sorted[k - 1].rank : k + 1; });
+  return sorted;
+}
+function scoreRows(ranked, gains) {
+  const max = Math.max(1, ...ranked.map(p => p.score));
+  const medal = r => ['🥇', '🥈', '🥉'][r - 1] || r;
+  return ranked.map(p => {
+    const d = gains ? gains[p.i] : null;
+    return `<li><span class="rank">${medal(p.rank)}</span><span class="nm">${esc(p.name)}` +
+      (d !== null ? `<span class="delta ${d ? '' : 'zero'}">+${d}</span>` : '') +
+      `</span><span class="pts">${p.score} ${esc(t('pts'))}</span>` +
+      `<span class="bar"><i style="width:${(p.score / max) * 100}%"></i></span></li>`;
+  }).join('');
+}
+function renderScore() {
+  const g = state.game; setRoundPill();
+  const sp = g.players[g.lastSpeaker].name;
+  const names = g.lastCorrect.map(i => g.players[i].name);
+  $('#summary').innerHTML =
+    `<div class="hint">${esc(t('speakerIs', { name: sp }))}</div>` +
+    `<div class="word">“${esc(g.lastWord || t('noWord'))}”</div>` +
+    `<div>${esc(names.length ? t('guessedBy', { names: joinNames(names) }) : t('nobodyGuessed'))}</div>`;
+  $('#scoreList').innerHTML = scoreRows(rankPlayers(g.players), g.gains);
+  const last = g.turn >= g.totalTurns;
+  $('#gNext').textContent = last ? t('seeResults') : t('nextSpeaker', { name: g.players[speakerIndex(g.turn)].name });
+}
+
+/* End of game: winner, ranking, tie-break message, confetti. */
+function renderEnd() {
+  const g = state.game;
+  const ranked = rankPlayers(g.players);
+  const top = ranked[0].score;
+  const leaders = ranked.filter(p => p.score === top).map(p => p.name);
+  $('#endTitle').textContent = leaders.length === 1 ? t('winnerIs', { name: leaders[0] }) : t('tie');
+  const tieEl = $('#tieMsg');
+  tieEl.classList.toggle('hidden', leaders.length === 1);
+  tieEl.textContent = leaders.length > 1 ? t('tieMsg', { names: joinNames(leaders), n: top }) : '';
+  const sharedBelow = ranked.some((p, k) => k > 0 && p.rank > 1 && p.rank === ranked[k - 1].rank);
+  $('#sharedNote').classList.toggle('hidden', !sharedBelow);
+  $('#finalList').innerHTML = scoreRows(ranked, null);
+}
+
+/* Quit button: tap twice to confirm (no native dialogs, safer in WebViews). */
+function quitTap(btn) {
+  if (btn.classList.contains('confirming')) {
+    state.game = null;
+    show('setup');
+    return;
+  }
+  btn.classList.add('confirming'); btn.textContent = t('quitConfirm'); buzz(30);
+  setTimeout(() => { btn.classList.remove('confirming'); btn.textContent = '✕'; }, 3000);
+}
+
+/* Android back button (called by the APK): go one screen back; false = leave the app. */
+window.rvBack = function () {
+  const sc = state.screen;
+  if (sc === 'free') {
+    if (state.playing) { stopSound(); render(); return true; }
+    return false;
+  }
+  if (sc === 'setup') { show('free'); return true; }
+  if (sc === 'end') { state.game = null; show('setup'); return true; }
+  if (sc === 'listen' && !state.game.played) { show('record'); return true; }
+  // During a game, back only arms the quit button (tap back again or ✕ to quit).
+  const q = $('#scr-' + sc + ' .quit');
+  if (q) quitTap(q);
+  return true;
+};
+
+/* Optional dictation for the real word (where SpeechRecognition exists). */
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+function dictate() {
+  if (!SpeechRec) return;
+  stopSound();
+  try {
+    const r = new SpeechRec();
+    r.lang = SPEECH_LANG[state.lang]; r.interimResults = false; r.maxAlternatives = 1;
+    r.onresult = e => {
+      const text = e.results[0][0].transcript;
+      state.game.word = text; $('#wordInput').value = text; buzz(20);
+    };
+    r.onerror = () => {};
+    r.start(); buzz(20);
+  } catch (e) { /* not available */ }
+}
+
+/* ============================================================
+   CONFETTI
+   ============================================================ */
+const confetti = {
+  raf: 0,
+  start() {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const c = $('#confetti'); c.classList.remove('hidden');
+    const dpr = window.devicePixelRatio || 1;
+    const w = c.width = innerWidth * dpr, h = c.height = innerHeight * dpr;
+    const g = c.getContext('2d');
+    const colors = ['#ef5350', '#4f8fe6', '#43b552', '#f9c23c', '#c85bc0', '#ff8a3d'];
+    const parts = Array.from({ length: 160 }, () => ({
+      x: Math.random() * w, y: -Math.random() * h * 0.8, s: (6 + Math.random() * 8) * dpr,
+      vx: (Math.random() - 0.5) * 3 * dpr, vy: (2 + Math.random() * 4) * dpr,
+      r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.3, c: colors[(Math.random() * colors.length) | 0]
+    }));
+    const t0 = performance.now();
+    cancelAnimationFrame(this.raf);
+    const frame = now => {
+      g.clearRect(0, 0, w, h);
+      let alive = false;
+      for (const p of parts) {
+        p.x += p.vx; p.y += p.vy; p.r += p.vr; p.vy += 0.03 * dpr;
+        if (p.y < h + 20) alive = true;
+        g.save(); g.translate(p.x, p.y); g.rotate(p.r); g.fillStyle = p.c;
+        g.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); g.restore();
+      }
+      if (alive && now - t0 < 7000) this.raf = requestAnimationFrame(frame); else this.stop();
+    };
+    this.raf = requestAnimationFrame(frame);
+  },
+  stop() { cancelAnimationFrame(this.raf); const c = $('#confetti'); c.classList.add('hidden'); clearCanvas(c); }
+};
+
+/* ============================================================
+   I18N + EVENTS
+   ============================================================ */
+function applyI18n() {
+  document.documentElement.lang = state.lang === 'no' ? 'nb' : state.lang;
+  $$('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  $$('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+  $$('.lang-select').forEach(s => { s.value = state.lang; });
+}
+
+function init() {
+  load();
+  // language selects
+  $$('.lang-select').forEach(sel => {
+    sel.innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+    sel.addEventListener('change', () => { state.lang = sel.value; save(); applyI18n(); render(); });
+  });
+  $('.share-ico').innerHTML = ICON.share;
+  $('#speedPills').innerHTML = SPEEDS.map(s => `<button class="pill-btn" data-speed="${s}">${s}x</button>`).join('');
+  $('#dictate').classList.toggle('hidden', !SpeechRec);
+
+  // Unlock audio on the very first touch/click (iOS/Android autoplay rules).
+  document.addEventListener('pointerdown', () => engine.unlock(), true);
+  document.addEventListener('touchend', () => engine.unlock(), { capture: true, passive: true });
+
+  // Free play
+  $('#fRec').addEventListener('click', freeRecordTap);
+  $('#fPlay').addEventListener('click', () => freePlayTap('f-orig'));
+  $('#fRev').addEventListener('click', () => freePlayTap('f-rev'));
+  $('#fShare').addEventListener('click', shareReversed);
+  $('#loopSwitch').addEventListener('click', () => {
+    state.settings.loop = !state.settings.loop; engine.setLoop(state.settings.loop); buzz(10); save(); renderFree();
+  });
+  $('#speedPills').addEventListener('click', e => {
+    const b = e.target.closest('[data-speed]'); if (!b) return;
+    state.settings.speed = Number(b.dataset.speed); engine.setRate(state.settings.speed); buzz(10); save(); renderFree();
+  });
+  $('#toParty').addEventListener('click', () => { buzz(15); show('setup'); });
+
+  // Setup
+  $('#setupBack').addEventListener('click', () => show('free'));
+  $('#addForm').addEventListener('submit', addPlayer);
+  $('#playerList').addEventListener('click', e => {
+    const b = e.target.closest('.remove'); if (!b) return;
+    state.players.splice(Number(b.dataset.i), 1); buzz(15); save(); renderSetup();
+  });
+  $('#roundPills').addEventListener('click', e => {
+    const b = e.target.closest('[data-rounds]'); if (!b) return;
+    const v = b.dataset.rounds;
+    if (v === 'each') state.settings.roundsMode = 'each';
+    else { state.settings.roundsMode = 'fixed'; state.settings.rounds = Number(v); }
+    buzz(10); save(); renderSetup();
+  });
+  $('#eachMinus').addEventListener('click', () => { state.settings.eachTimes = Math.max(1, state.settings.eachTimes - 1); save(); renderSetup(); });
+  $('#eachPlus').addEventListener('click', () => { state.settings.eachTimes = Math.min(5, state.settings.eachTimes + 1); save(); renderSetup(); });
+  $('#startGame').addEventListener('click', () => { if (state.players.length >= MIN_PLAYERS) startGame(0); });
+
+  // Game
+  $('#gRec').addEventListener('click', gameRecordTap);
+  $('#gPlayRev').addEventListener('click', gamePlayReversedTap);
+  $('#gReRecord').addEventListener('click', () => { buzz(15); show('record'); });
+  $('#gReveal').addEventListener('click', () => { if (state.game.played) { buzz(20); show('reveal'); } });
+  $('#wordInput').addEventListener('input', e => { state.game.word = e.target.value; });
+  $('#wordInput').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+  $('#dictate').addEventListener('click', dictate);
+  $('#gPlayOrig').addEventListener('click', () => {
+    if (state.playing === 'g-orig') { stopSound(); renderReveal(); return; }
+    buzz(15); playSound('g-orig', state.game.original);
+  });
+  $('#guessChips').addEventListener('click', e => {
+    const b = e.target.closest('.chip'); if (!b) return;
+    const g = state.game;
+    if (b.dataset.i === 'nobody') { g.nobody = !g.nobody; if (g.nobody) g.correct.clear(); }
+    else {
+      const i = Number(b.dataset.i);
+      g.correct.has(i) ? g.correct.delete(i) : g.correct.add(i);
+      if (g.correct.size) g.nobody = false;
+    }
+    buzz(10); renderReveal();
+  });
+  $('#gConfirm').addEventListener('click', confirmRound);
+  $('#gNext').addEventListener('click', () => {
+    buzz(20);
+    if (state.game.turn >= state.game.totalTurns) { show('end'); confetti.start(); buzz([60, 40, 60, 40, 120]); }
+    else beginTurn();
+  });
+  $$('.quit').forEach(b => b.addEventListener('click', () => quitTap(b)));
+
+  // End
+  $('#playAgain').addEventListener('click', () => {
+    // Same players; the next person in line starts this time.
+    const offset = state.game ? (state.game.startOffset + 1) % state.players.length : 0;
+    startGame(offset);
+  });
+  $('#newGame').addEventListener('click', () => { state.game = null; show('setup'); });
+  $('#endHome').addEventListener('click', () => { state.game = null; show('free'); });
+
+  // Stop sound when the app goes to the background.
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { stopSound(); render(); } });
+
+  applyI18n();
+  show('free');
+}
+init();
+</script>
+</body>
+</html>
