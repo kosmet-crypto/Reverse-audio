@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WAV files from the Share button are written here before handing them to other apps. -->
+<paths>
+    <cache-path name="share" path="share/" />
+</paths>

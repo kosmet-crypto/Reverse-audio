@@ -855,6 +855,13 @@ async function shareReversed() {
   buzz(15);
   const blob = encodeWav(buf);
   const name = 'reverse-voice-' + Date.now() + '.wav';
+  // Inside the Android app: hand the file to the native share sheet.
+  if (window.ReverseAndroid && window.ReverseAndroid.shareWav) {
+    const reader = new FileReader();
+    reader.onload = () => window.ReverseAndroid.shareWav(String(reader.result).split(',')[1], name, t('shareTitle'));
+    reader.readAsDataURL(blob);
+    return;
+  }
   try {
     const file = new File([blob], name, { type: 'audio/wav' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1092,6 +1099,22 @@ function quitTap(btn) {
   btn.classList.add('confirming'); btn.textContent = t('quitConfirm'); buzz(30);
   setTimeout(() => { btn.classList.remove('confirming'); btn.textContent = '✕'; }, 3000);
 }
+
+/* Android back button (called by the APK): go one screen back; false = leave the app. */
+window.rvBack = function () {
+  const sc = state.screen;
+  if (sc === 'free') {
+    if (state.playing) { stopSound(); render(); return true; }
+    return false;
+  }
+  if (sc === 'setup') { show('free'); return true; }
+  if (sc === 'end') { state.game = null; show('setup'); return true; }
+  if (sc === 'listen' && !state.game.played) { show('record'); return true; }
+  // During a game, back only arms the quit button (tap back again or ✕ to quit).
+  const q = $('#scr-' + sc + ' .quit');
+  if (q) quitTap(q);
+  return true;
+};
 
 /* Optional dictation for the real word (where SpeechRecognition exists). */
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
