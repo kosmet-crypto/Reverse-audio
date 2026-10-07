@@ -560,6 +560,14 @@ const engine = {
 
   get isRecording() { return !!this.rec; },
 
+  /* Drop the AudioContext after recording; the next tap makes a fresh one at the normal output
+     rate (some phones change the output rate while the mic is open, which sped playback up). */
+  resetContext() {
+    const ctx = this.ctx;
+    this.ctx = null; this.unlocked = false;
+    if (ctx && ctx.close) ctx.close().catch(() => {});
+  },
+
   /* Start recording. opts: { canvas, maxSec, onTick(sec), onDone(AudioBuffer), onError(key) } */
   async startRecording(opts) {
     if (this.rec) return;
@@ -569,7 +577,11 @@ const engine = {
     const rec = this.rec = { opts, chunks: [], pcm: [], pending: true, cancelled: false, stopping: false };
     let stream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      // Voice processing off: on Android it switches audio to "phone call" mode, which sounds
+      // metallic and can make the next playback run at the wrong speed.
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }
+      });
     } catch (e) {
       if (this.rec === rec) this.rec = null;
       opts.onError(e && (e.name === 'NotAllowedError' || e.name === 'SecurityError') ? 'micDenied' : 'micUnsupported');
@@ -647,6 +659,7 @@ const engine = {
         console.error(e);
         rec.opts.onError('decodeFailed');
       }
+      this.resetContext();
     };
     if (rec.mr && rec.mr.state !== 'inactive') { rec.mr.onstop = finish; rec.mr.stop(); }
     else finish();
@@ -685,7 +698,7 @@ function decodeAudio(ctx, ab) {
 }
 
 /* Cut silence at the start and end (keeps a little padding). Returns null if nothing was heard. */
-function trimSilence(buffer, threshold = 0.02, padSec = 0.08) {
+function trimSilence(buffer, threshold, padSec = 0.08) {
   const n = buffer.length, chans = [];
   for (let c = 0; c < buffer.numberOfChannels; c++) chans.push(buffer.getChannelData(c));
   const loud = i => chans.some(ch => Math.abs(ch[i]) > threshold);
@@ -695,14 +708,14 @@ function trimSilence(buffer, threshold = 0.02, padSec = 0.08) {
   while (b > a && !loud(b)) b--;
   const pad = Math.floor(padSec * buffer.sampleRate);
   a = Math.max(0, a - pad); b = Math.min(n - 1, b + pad);
-  const out = engine.ctx.createBuffer(buffer.numberOfChannels, b - a + 1, buffer.sampleRate);
+  const out = makeBuffer(buffer.numberOfChannels, b - a + 1, buffer.sampleRate);
   chans.forEach((ch, c) => out.getChannelData(c).set(ch.subarray(a, b + 1)));
   return out;
 }
 
 /* Reverse: copy the buffer and reverse() each channel's Float32Array. */
 function reverseBuffer(buffer) {
-  const out = engine.ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+  const out = makeBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
   for (let c = 0; c < buffer.numberOfChannels; c++) {
     const data = buffer.getChannelData(c).slice();
     data.reverse();
@@ -711,10 +724,48 @@ function reverseBuffer(buffer) {
   return out;
 }
 
-/* Turn a fresh recording into {original, reversed}, or null if it is empty/too short. */
+/* New AudioBuffer that does not depend on a (possibly closed) AudioContext. */
+function makeBuffer(channels, length, sampleRate) {
+  try { return new AudioBuffer({ numberOfChannels: channels, length, sampleRate }); }
+  catch (e) { return engine.unlock().createBuffer(channels, length, sampleRate); }
+}
+
+/* Mix all channels into one (a voice recording does not need stereo; halves the WAV size). */
+function toMono(buffer) {
+  if (buffer.numberOfChannels === 1) return buffer;
+  const out = makeBuffer(1, buffer.length, buffer.sampleRate), o = out.getChannelData(0);
+  const n = buffer.numberOfChannels;
+  for (let c = 0; c < n; c++) {
+    const ch = buffer.getChannelData(c);
+    for (let i = 0; i < ch.length; i++) o[i] += ch[i] / n;
+  }
+  return out;
+}
+
+/* Loudest sample of a buffer (0..1). */
+function peakOf(buffer) {
+  let peak = 0;
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const ch = buffer.getChannelData(c);
+    for (let i = 0; i < ch.length; i++) { const v = Math.abs(ch[i]); if (v > peak) peak = v; }
+  }
+  return peak;
+}
+
+/* Turn a fresh recording into {original, reversed}, or null if it is empty/too short.
+   Silence is trimmed relative to the loudest part, then the voice is brought up to a clear level
+   (the mic's automatic gain is off). */
 function processRecording(buf) {
-  const trimmed = trimSilence(buf);
+  buf = toMono(buf);
+  const peak = peakOf(buf);
+  if (peak < 0.003) return null;
+  const trimmed = trimSilence(buf, Math.max(0.004, peak * 0.08));
   if (!trimmed || trimmed.duration < 0.2) return null;
+  const gain = Math.min(10, 0.9 / peak);
+  for (let c = 0; c < trimmed.numberOfChannels; c++) {
+    const ch = trimmed.getChannelData(c);
+    for (let i = 0; i < ch.length; i++) ch[i] *= gain;
+  }
   return { original: trimmed, reversed: reverseBuffer(trimmed) };
 }
 
