@@ -6,7 +6,9 @@ import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.AudioManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
@@ -51,6 +53,8 @@ public class MainActivity extends Activity {
         webView = new WebView(this);
         webView.setBackgroundColor(getColor(R.color.bg));
         setContentView(webView);
+        // Volume keys change media volume, not ringer/call volume.
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
 
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
@@ -145,6 +149,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         webView.onResume();
+        audioToSpeaker();
     }
 
     @Override
@@ -153,8 +158,30 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 
+    /**
+     * While the mic is open, the WebView switches Android into "call" audio mode, which routes
+     * sound to the earpiece and keeps it there. Put audio back to normal media output
+     * (loudspeaker, or headphones when connected).
+     */
+    private void audioToSpeaker() {
+        AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
+        if (am == null) return;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) am.clearCommunicationDevice();
+            am.setMode(AudioManager.MODE_NORMAL);
+            if (am.isSpeakerphoneOn()) am.setSpeakerphoneOn(false);
+        } catch (Exception ignored) {
+        }
+    }
+
     /** Called from the page as window.ReverseAndroid. */
     private class Bridge {
+        /** Recording finished or playback is about to start: use the loudspeaker again. */
+        @JavascriptInterface
+        public void audioToSpeaker() {
+            runOnUiThread(MainActivity.this::audioToSpeaker);
+        }
+
         /** Share a WAV file (base64) through the Android share sheet. */
         @JavascriptInterface
         public void shareWav(final String base64, final String name, final String title) {

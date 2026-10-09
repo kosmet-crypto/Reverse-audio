@@ -659,6 +659,7 @@ const engine = {
         console.error(e);
         rec.opts.onError('decodeFailed');
       }
+      toSpeaker();
       this.resetContext();
     };
     if (rec.mr && rec.mr.state !== 'inactive') { rec.mr.onstop = finish; rec.mr.stop(); }
@@ -667,6 +668,7 @@ const engine = {
 
   /* Play an AudioBuffer. onEnd fires when it ends or is stopped. */
   play(buffer, { loop = false, rate = 1, onEnd } = {}) {
+    toSpeaker();
     const ctx = this.unlock();
     if (!ctx || !buffer) return;
     this.stop();
@@ -688,6 +690,12 @@ const engine = {
   setRate(r) { if (this.source) this.source.playbackRate.value = r; },
   setLoop(l) { if (this.source) this.source.loop = l; }
 };
+
+/* Android app only: after the mic was open, send sound back to the loudspeaker (not the earpiece). */
+function toSpeaker() {
+  try { if (window.ReverseAndroid && window.ReverseAndroid.audioToSpeaker) window.ReverseAndroid.audioToSpeaker(); }
+  catch (e) { /* not in the app */ }
+}
 
 /* decodeAudioData: promise + callback form (older Safari/WebView). */
 function decodeAudio(ctx, ab) {
